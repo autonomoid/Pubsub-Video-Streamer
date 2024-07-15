@@ -34,8 +34,11 @@ def get_video_frame_rate(video_path):
 def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
     """Extracts frames from the video and publishes them to a Pub/Sub topic at the natural frame rate."""
     logging.debug(f"Publishing frames from {local_video_path} to Pub/Sub topic {topic_name} in project {project_id}")
-    cap = cv2.VideoCapture(local_video_path)
-    publisher = pubsub_v1.PublisherClient()
+
+    # Configure the publisher with message ordering enabled
+    publisher_options = pubsub_v1.types.PublisherOptions(enable_message_ordering=True)
+    client_options = {"api_endpoint": "us-east1-pubsub.googleapis.com:443"}  # Adjust the region as needed
+    publisher = pubsub_v1.PublisherClient(publisher_options=publisher_options, client_options=client_options)
     topic_path = publisher.topic_path(project_id, topic_name)
 
     frame_rate = get_video_frame_rate(local_video_path)
