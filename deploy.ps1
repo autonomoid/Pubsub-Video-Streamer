@@ -63,7 +63,7 @@ Check-LastCommand "Failed to create pubsub subscription."
 
 # Purge task queue
 Write-Host "Purging task queue..."
-#gcloud tasks queues ?????????
+#gcloud tasks queues purge $taskqueue --location=us-central1
 Check-LastCommand "Failed to purgew task queue."
 
 

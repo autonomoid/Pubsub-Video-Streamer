@@ -54,7 +54,7 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
     publisher_options = pubsub_v1.types.PublisherOptions(enable_message_ordering=True)
     client_options = {"api_endpoint": "us-east1-pubsub.googleapis.com:443"}  # Adjust the region as needed
     publisher = pubsub_v1.PublisherClient(publisher_options=publisher_options, client_options=client_options)
-    topic_path = publisher.topic_path(project_id, topic_name)
+    topic_path = str(publisher.topic_path(project_id, topic_name))
 
     frame_rate = get_video_frame_rate(local_video_path)
     frame_delay = 1.0 / frame_rate
@@ -70,17 +70,20 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
         # Compress the frame to JPEG format with quality 75 (adjust as needed)
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 75]
         _, buffer = cv2.imencode('.jpg', frame, encode_param)
-        frame_bytes = base64.b64encode(buffer).decode('utf-8')  # Ensure frame_bytes is a string
+        data = base64.b64encode(buffer)  # Ensure frame_bytes is a string
+  
+        logging.debug(f"Published frame {frame_id} with frame rate {frame_rate}")
+        logging.debug(f"Topic path: {topic_path}")
+        logging.debug(f"Ordering key: {ordering_key}")
+        logging.debug(f"data: {data}")
+        
         future = publisher.publish(
             topic_path,
-            data=frame_bytes.encode('utf-8'),
+            data=data,
             ordering_key=ordering_key,
-            attributes={
-                'frame_id': str(frame_id),   # Convert frame_id to string
-                'frame_rate': str(frame_rate)  # Convert frame_rate to string
-            }
+            frame_id=str(frame_id),   # Convert frame_id to string
+            frame_rate=str(frame_rate)  # Convert frame_rate to string
         )
-        logging.debug(f"Published frame {frame_id} with frame rate {frame_rate}")
         frame_id += 1
 
         start_time = time.time()
