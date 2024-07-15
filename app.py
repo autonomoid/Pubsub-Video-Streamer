@@ -7,6 +7,7 @@ import time
 import logging
 from flask import Flask, request, jsonify
 import json
+import hashlib
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,6 +47,7 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
 
     frame_id = 0
     ordering_key = "video-stream"  # Set a fixed ordering key to maintain order
+    cap = cv2.VideoCapture(local_video_path)  # Ensure cap is properly defined here
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -83,33 +85,43 @@ def trigger():
     project_id = request_data['project_id']
     topic_name = request_data['topic_name']
 
-    # Create a task for processing the video
-    client = tasks_v2.CloudTasksClient()
-    project = project_id
-    queue = 'my-queue'
-    location = 'us-central1'
-    url = f'https://{request.host}/process_video'
-    payload = {
-        'bucket_name': bucket_name,
-        'video_path': video_path,
-        'project_id': project_id,
-        'topic_name': topic_name
-    }
-    task = {
-        'http_request': {
-            'http_method': tasks_v2.HttpMethod.POST,
-            'url': url,
-            'headers': {
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps(payload).encode()
+    try:
+        # Create a unique task name based on the video details
+        unique_task_name = hashlib.sha256(f"{bucket_name}/{video_path}".encode()).hexdigest()
+        
+        # Create a task for processing the video
+        client = tasks_v2.CloudTasksClient()
+        project = project_id
+        queue = 'task-queue'
+        location = 'us-central1'
+        url = f'https://{request.host}/process_video'
+        payload = {
+            'bucket_name': bucket_name,
+            'video_path': video_path,
+            'project_id': project_id,
+            'topic_name': topic_name
         }
-    }
-    parent = client.queue_path(project, location, queue)
-    response = client.create_task(parent=parent, task=task)
-    logging.debug(f"Created task {response.name}")
-
-    return jsonify({"status": "Task created"}), 200
+        task = {
+            'name': client.task_path(project, location, queue, unique_task_name),
+            'http_request': {
+                'http_method': tasks_v2.HttpMethod.POST,
+                'url': url,
+                'headers': {
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps(payload).encode()
+            }
+        }
+        parent = client.queue_path(project, location, queue)
+        response = client.create_task(parent=parent, task=task)
+        logging.debug(f"Created task {response.name}")
+        return jsonify({"status": "Task created", "task_name": response.name}), 200
+    except Exception as e:
+        if "ALREADY_EXISTS" in str(e):
+            logging.info(f"Task with name {unique_task_name} already exists.")
+            return jsonify({"status": "Task already exists", "task_name": unique_task_name}), 200
+        logging.error(f"Failed to create task: {e}")
+        return jsonify({"status": "Failed to create task", "error": str(e)}), 500
 
 @app.route('/process_video', methods=['POST'])
 def process_video():

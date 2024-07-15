@@ -30,6 +30,9 @@ frame_buffer = deque(maxlen=BUFFER_SIZE)
 frame_rate = 30.0  # Default frame rate
 
 def trigger_service(url, bucket_name, video_path, project_id, topic_name):
+    
+    url += '/trigger'
+    
     headers = {
         'Content-Type': 'application/json',
     }

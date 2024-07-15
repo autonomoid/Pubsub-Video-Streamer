@@ -5,6 +5,7 @@ $region = "us-central1"
 $cloudRunServiceName = "pubsub-video-streamer"
 $subscription = "video-stream-test-sub"
 $topic = "video-stream"
+$taskqueue = "task-queue"
 
 # Authenticate
 #gcloud auth login
@@ -59,5 +60,15 @@ Check-LastCommand "Failed to create pubsub topic."
 Write-Host "Creating pubsub subscription..."
 #gcloud pubsub subscriptions create $subscription --topic=$topic --enable-message-ordering
 Check-LastCommand "Failed to create pubsub subscription."
+
+# Delete task queue
+Write-Host "Deleting task queue..."
+#gcloud tasks queues delete $taskqueue --location=us-central1
+Check-LastCommand "Failed to create task queue."
+
+# Create task queue
+Write-Host "Creating task queue..."
+#gcloud tasks queues create $taskqueue --location=us-central1
+Check-LastCommand "Failed to create task queue."
 
 Write-Host "Deployment completed successfully."
