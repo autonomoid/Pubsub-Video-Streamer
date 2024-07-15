@@ -1,0 +1,8 @@
+{
+    "CLOUD_RUN_URL": "https://pubsub-video-streamer-ec3q4rsmra-uc.a.run.app",
+    "BUCKET_NAME": "cloud-racer",
+    "VIDEO_PATH": "data/raw_data/yolov8n-car_front-rear-2023_London_Highlights.mp4",
+    "PROJECT_ID": "racer-428819",
+    "TOPIC_NAME": "video-stream",
+    "SUBSCRIPTION_NAME": "video-stream-test-sub"
+}  

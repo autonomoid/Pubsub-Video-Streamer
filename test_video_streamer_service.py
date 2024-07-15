@@ -13,16 +13,21 @@ import time
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Set up Pub/Sub subscription parameters
-PROJECT_ID = 'your-project-id'
-TOPIC_NAME = 'your-topic'
-SUBSCRIPTION_NAME = 'your-subscription'
+# Read configuration from config.json
+with open('config.json') as config_file:
+    config = json.load(config_file)
+
+CLOUD_RUN_URL = config['CLOUD_RUN_URL']
+BUCKET_NAME = config['BUCKET_NAME']
+VIDEO_PATH = config['VIDEO_PATH']
+PROJECT_ID = config['PROJECT_ID']
+TOPIC_NAME = config['TOPIC_NAME']
+SUBSCRIPTION_NAME = config['SUBSCRIPTION_NAME']
 TIMEOUT = 60.0  # Timeout for Pub/Sub subscription
 BUFFER_SIZE = 60  # Buffer size for frames
 
-frame_buffer = {}
+frame_buffer = deque(maxlen=BUFFER_SIZE)
 frame_rate = 30.0  # Default frame rate
-expected_frame_id = 0  # Track the next expected frame ID
 lock = threading.Lock()
 
 def trigger_service(url, bucket_name, video_path, project_id, topic_name):
@@ -59,25 +64,16 @@ def subscribe_to_pubsub(project_id, subscription_name, timeout=60.0):
     subscription_path = subscriber.subscription_path(project_id, subscription_name)
 
     def callback(message):
-        global frame_rate, expected_frame_id
+        global frame_rate
         logging.info(f"Received message with attributes: {message.attributes}")
         try:
-            frame_id = int(message.attributes.get('frame_id', -1))
-            if frame_id < expected_frame_id:
-                logging.debug(f"Skipping old frame: {frame_id}")
-                message.ack()
-                return
-
             frame_bytes = base64.b64decode(message.data)
             np_arr = np.frombuffer(frame_bytes, np.uint8)
             frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             frame_rate = float(message.attributes.get('frame_rate', 30.0))
 
             with lock:
-                frame_buffer[frame_id] = frame
-                if len(frame_buffer) > BUFFER_SIZE:
-                    min_frame_id = min(frame_buffer.keys())
-                    del frame_buffer[min_frame_id]
+                frame_buffer.append(frame)
 
             message.ack()
         except Exception as e:
@@ -96,12 +92,12 @@ def subscribe_to_pubsub(project_id, subscription_name, timeout=60.0):
         cv2.destroyAllWindows()
 
 def display_frames():
-    global frame_rate, expected_frame_id
+    global frame_rate
+    cv2.namedWindow('Video Stream', cv2.WINDOW_NORMAL)
     while True:
         with lock:
-            if expected_frame_id in frame_buffer:
-                frame = frame_buffer.pop(expected_frame_id)
-                expected_frame_id += 1
+            if frame_buffer:
+                frame = frame_buffer.popleft()
             else:
                 frame = None
 
@@ -114,24 +110,16 @@ def display_frames():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    CLOUD_RUN_URL = 'https://pubsub-video-streamer-ec3q4rsmra-uc.a.run.app'
-    BUCKET_NAME = 'cloud-racer'
-    VIDEO_PATH = 'data/raw_data/yolov8n-car_front-rear-2023_London_Highlights.mp4'
-    PROJECT_ID = 'racer-428819'
-    TOPIC_NAME = 'video-stream'
-    SUBSCRIPTION_NAME = 'video-stream-test-sub'
-
     logging.info("Starting test script...")
 
+    # Trigger the Cloud Run service
+    trigger_service(CLOUD_RUN_URL, BUCKET_NAME, VIDEO_PATH, PROJECT_ID, TOPIC_NAME)
+
     # Start the frame display thread
-    display_thread = threading.Thread(target=display_frames)
+    display_thread = threading.Thread(target=display_frames)q
     display_thread.start()
 
     # Subscribe to the Pub/Sub topic and buffer messages
     subscribe_to_pubsub(PROJECT_ID, SUBSCRIPTION_NAME, TIMEOUT)
 
-    # Trigger the Cloud Run service
-    trigger_service(CLOUD_RUN_URL, BUCKET_NAME, VIDEO_PATH, PROJECT_ID, TOPIC_NAME)
-
     logging.info("Test script completed.")
- 
