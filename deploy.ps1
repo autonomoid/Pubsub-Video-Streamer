@@ -61,14 +61,10 @@ Write-Host "Creating pubsub subscription..."
 #gcloud pubsub subscriptions create $subscription --topic=$topic --enable-message-ordering
 Check-LastCommand "Failed to create pubsub subscription."
 
-# Delete task queue
-Write-Host "Deleting task queue..."
-#gcloud tasks queues delete $taskqueue --location=us-central1
-Check-LastCommand "Failed to create task queue."
+# Purge task queue
+Write-Host "Purging task queue..."
+#gcloud tasks queues ?????????
+Check-LastCommand "Failed to purgew task queue."
 
-# Create task queue
-Write-Host "Creating task queue..."
-#gcloud tasks queues create $taskqueue --location=us-central1
-Check-LastCommand "Failed to create task queue."
 
 Write-Host "Deployment completed successfully."

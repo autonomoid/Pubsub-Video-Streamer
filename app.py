@@ -8,11 +8,25 @@ import logging
 from flask import Flask, request, jsonify
 import json
 import hashlib
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
+
+# Load configuration from config.json
+with open('config.json') as config_file:
+    config = json.load(config_file)
+
+CLOUD_RUN_URL = config['CLOUD_RUN_URL']
+BUCKET_NAME = config['BUCKET_NAME']
+VIDEO_PATH = config['VIDEO_PATH']
+PROJECT_ID = config['PROJECT_ID']
+TOPIC_NAME = config['TOPIC_NAME']
+SUBSCRIPTION_NAME = config['SUBSCRIPTION_NAME']
+QUEUE_NAME = config['QUEUE_NAME']
+LOCATION = 'us-central1'  # Set this to your queue's location
 
 def download_video_from_gcs(bucket_name, video_path):
     """Downloads a video file from GCS to a temporary local file."""
@@ -56,14 +70,14 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
         # Compress the frame to JPEG format with quality 75 (adjust as needed)
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 75]
         _, buffer = cv2.imencode('.jpg', frame, encode_param)
-        frame_bytes = base64.b64encode(buffer)
+        frame_bytes = base64.b64encode(buffer).decode('utf-8')  # Ensure frame_bytes is a string
         future = publisher.publish(
             topic_path,
-            data=frame_bytes,
+            data=frame_bytes.encode('utf-8'),
             ordering_key=ordering_key,
             attributes={
-                'frame_id': str(frame_id),
-                'frame_rate': str(frame_rate)
+                'frame_id': str(frame_id),   # Convert frame_id to string
+                'frame_rate': str(frame_rate)  # Convert frame_rate to string
             }
         )
         logging.debug(f"Published frame {frame_id} with frame rate {frame_rate}")
@@ -86,14 +100,15 @@ def trigger():
     topic_name = request_data['topic_name']
 
     try:
-        # Create a unique task name based on the video details
-        unique_task_name = hashlib.sha256(f"{bucket_name}/{video_path}".encode()).hexdigest()
+        # Create a unique task name based on the video details and current timestamp
+        timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+        unique_task_name = hashlib.sha256(f"{bucket_name}/{video_path}/{timestamp}".encode()).hexdigest()
         
         # Create a task for processing the video
         client = tasks_v2.CloudTasksClient()
         project = project_id
-        queue = 'task-queue'
-        location = 'us-central1'
+        queue = QUEUE_NAME  # Ensure this queue name matches the one you created
+        location = LOCATION  # Ensure this matches the location of your queue
         url = f'https://{request.host}/process_video'
         payload = {
             'bucket_name': bucket_name,

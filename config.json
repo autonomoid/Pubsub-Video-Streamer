@@ -4,5 +4,6 @@
     "VIDEO_PATH": "data/raw_data/yolov8n-car_front-rear-2023_London_Highlights.mp4",
     "PROJECT_ID": "racer-428819",
     "TOPIC_NAME": "video-stream",
-    "SUBSCRIPTION_NAME": "video-stream-test-sub"
+    "SUBSCRIPTION_NAME": "video-stream-test-sub",
+     "QUEUE_NAME": "task-queue"
 }  
