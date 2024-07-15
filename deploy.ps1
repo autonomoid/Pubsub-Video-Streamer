@@ -46,7 +46,7 @@ Check-LastCommand "Failed to delete pubsub topic."
 
 # Create pubsub topic
 Write-Host "Creating pubsub topic..."
-gcloud pubsub topics create $topic
+gcloud pubsub topics create $topic --message-ordering
 Check-LastCommand "Failed to create pubsub topic."
 
 # Create pubsub subscription
