@@ -11,7 +11,7 @@ import threading
 import time
 
 # Configure logging
-logging.basicConfig(level=logging.ERROR, format='%(asctime=s', - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Read configuration from config.json
 with open('config.json') as config_file:
