@@ -51,7 +51,7 @@ Check-LastCommand "Failed to create pubsub topic."
 
 # Create pubsub subscription
 Write-Host "Creating pubsub subscription..."
-gcloud pubsub subscriptions create $subscription --topic=$topic
+gcloud pubsub subscriptions create $subscription --topic=$topic --enable-message-ordering
 Check-LastCommand "Failed to create pubsub subscription."
 
 Write-Host "Deployment completed successfully."

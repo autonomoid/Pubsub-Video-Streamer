@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify
 import json
 
 # Configure logging
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
@@ -42,6 +42,7 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
     frame_delay = 1.0 / frame_rate
 
     frame_id = 0
+    ordering_key = "video-stream"  # Set a fixed ordering key to maintain order
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -54,6 +55,7 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
         future = publisher.publish(
             topic_path,
             data=frame_bytes,
+            ordering_key=ordering_key,
             frame_id=str(frame_id),
             frame_rate=str(frame_rate)
         )

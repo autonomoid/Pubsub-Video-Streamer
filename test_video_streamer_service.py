@@ -11,7 +11,7 @@ import threading
 import time
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.ERROR, format='%(asctime=s', - %(levelname)s - %(message)s')
 
 # Read configuration from config.json
 with open('config.json') as config_file:
@@ -28,7 +28,6 @@ BUFFER_SIZE = 60  # Buffer size for frames
 
 frame_buffer = deque(maxlen=BUFFER_SIZE)
 frame_rate = 30.0  # Default frame rate
-lock = threading.Lock()
 
 def trigger_service(url, bucket_name, video_path, project_id, topic_name):
     headers = {
@@ -72,8 +71,7 @@ def subscribe_to_pubsub(project_id, subscription_name, timeout=60.0):
             frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             frame_rate = float(message.attributes.get('frame_rate', 30.0))
 
-            with lock:
-                frame_buffer.append(frame)
+            frame_buffer.append(frame)
 
             message.ack()
         except Exception as e:
@@ -95,13 +93,8 @@ def display_frames():
     global frame_rate
     cv2.namedWindow('Video Stream', cv2.WINDOW_NORMAL)
     while True:
-        with lock:
-            if frame_buffer:
-                frame = frame_buffer.popleft()
-            else:
-                frame = None
-
-        if frame is not None:
+        if frame_buffer:
+            frame = frame_buffer.popleft()
             cv2.imshow('Video Stream', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -116,7 +109,7 @@ if __name__ == "__main__":
     trigger_service(CLOUD_RUN_URL, BUCKET_NAME, VIDEO_PATH, PROJECT_ID, TOPIC_NAME)
 
     # Start the frame display thread
-    display_thread = threading.Thread(target=display_frames)q
+    display_thread = threading.Thread(target=display_frames)
     display_thread.start()
 
     # Subscribe to the Pub/Sub topic and buffer messages
