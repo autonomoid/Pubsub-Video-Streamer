@@ -131,7 +131,7 @@ if __name__ == "__main__":
     subscribe_to_pubsub(PROJECT_ID, SUBSCRIPTION_NAME, TIMEOUT)
 
     # Trigger the Cloud Run service
-    #trigger_service(CLOUD_RUN_URL, BUCKET_NAME, VIDEO_PATH, PROJECT_ID, TOPIC_NAME)
+    trigger_service(CLOUD_RUN_URL, BUCKET_NAME, VIDEO_PATH, PROJECT_ID, TOPIC_NAME)
 
     logging.info("Test script completed.")
  

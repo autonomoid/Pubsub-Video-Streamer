@@ -1,5 +1,5 @@
 import cv2
-from google.cloud import storage, pubsub_v1
+from google.cloud import storage, pubsub_v1, tasks_v2
 import base64
 import tempfile
 import os
@@ -76,21 +76,50 @@ def trigger():
     project_id = request_data['project_id']
     topic_name = request_data['topic_name']
 
-    # Start a new thread to process the video
-    processing_thread = threading.Thread(target=process_video, args=(bucket_name, video_path, project_id, topic_name))
-    processing_thread.start()
+    # Create a task for processing the video
+    client = tasks_v2.CloudTasksClient()
+    project = project_id
+    queue = 'my-queue'
+    location = 'us-central1'
+    url = f'https://{request.host}/process_video'
+    payload = {
+        'bucket_name': bucket_name,
+        'video_path': video_path,
+        'project_id': project_id,
+        'topic_name': topic_name
+    }
+    task = {
+        'http_request': {
+            'http_method': tasks_v2.HttpMethod.POST,
+            'url': url,
+            'headers': {
+                'Content-Type': 'application/json'
+            },
+            'body': json.dumps(payload).encode()
+        }
+    }
+    parent = client.queue_path(project, location, queue)
+    response = client.create_task(parent=parent, task=task)
+    logging.debug(f"Created task {response.name}")
 
-    return jsonify({"status": "Processing started"}), 200
+    return jsonify({"status": "Task created"}), 200
 
-def process_video(bucket_name, video_path, project_id, topic_name):
-    logging.debug("Processing video")
+@app.route('/process_video', methods=['POST'])
+def process_video():
+    logging.debug("Received process_video request")
+    request_data = request.get_json()
+    bucket_name = request_data['bucket_name']
+    video_path = request_data['video_path']
+    project_id = request_data['project_id']
+    topic_name = request_data['topic_name']
+
     # Download video from GCS
     local_video_path = download_video_from_gcs(bucket_name, video_path)
 
     # Publish frames to Pub/Sub
     publish_frames_to_pubsub(local_video_path, project_id, topic_name)
 
-    logging.debug("Video processing completed")
+    return jsonify({"status": "Processing completed"}), 200
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
