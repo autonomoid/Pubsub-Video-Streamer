@@ -56,8 +56,10 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
             topic_path,
             data=frame_bytes,
             ordering_key=ordering_key,
-            frame_id=str(frame_id),
-            frame_rate=str(frame_rate)
+            attributes={
+                'frame_id': str(frame_id),
+                'frame_rate': str(frame_rate)
+            }
         )
         logging.debug(f"Published frame {frame_id} with frame rate {frame_rate}")
         frame_id += 1
