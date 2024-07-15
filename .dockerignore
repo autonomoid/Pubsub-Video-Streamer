@@ -1,0 +1,13 @@
+# Ignore the .git directory
+.git
+
+# Ignore Dockerfile itself
+Dockerfile
+dockerfile
+
+# Ignore other temporary or unnecessary files
+*.log
+*.tmp
+__pycache__
+*.pyc
+.env
