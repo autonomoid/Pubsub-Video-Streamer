@@ -1,8 +1,7 @@
 import cv2
 from google.cloud import storage, pubsub_v1, tasks_v2
 import base64
-import tempfile
-import os
+import io
 import time
 import logging
 from flask import Flask, request, jsonify
@@ -11,7 +10,7 @@ import hashlib
 from datetime import datetime
 
 # Configure logging
-logging.basicConfig(level=logging.WARN, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
@@ -28,27 +27,20 @@ SUBSCRIPTION_NAME = config['SUBSCRIPTION_NAME']
 QUEUE_NAME = config['QUEUE_NAME']
 LOCATION = 'us-central1'  # Set this to your queue's location
 
-def download_video_from_gcs(bucket_name, video_path):
-    """Downloads a video file from GCS to a temporary local file."""
-    logging.debug(f"Downloading video from bucket {bucket_name}, path {video_path}")
+def get_video_stream_from_gcs(bucket_name, video_path):
+    """Streams video data directly from GCS."""
+    logging.debug(f"Streaming video from bucket {bucket_name}, path {video_path}")
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(video_path)
-    _, local_temp_filename = tempfile.mkstemp()
-    blob.download_to_filename(local_temp_filename)
-    logging.debug(f"Video downloaded to {local_temp_filename}")
-    return local_temp_filename
+    video_stream = io.BytesIO()
+    blob.download_to_file(video_stream)
+    video_stream.seek(0)  # Rewind the stream to the beginning
+    return video_stream
 
-def get_video_frame_rate(video_path):
-    """Extracts the frame rate from the video."""
-    cap = cv2.VideoCapture(video_path)
-    frame_rate = cap.get(cv2.CAP_PROP_FPS)
-    cap.release()
-    return frame_rate
-
-def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
-    """Extracts frames from the video and publishes them to a Pub/Sub topic at the natural frame rate."""
-    logging.debug(f"Publishing frames from {local_video_path} to Pub/Sub topic {topic_name} in project {project_id}")
+def publish_frames_to_pubsub(video_stream, project_id, topic_name):
+    """Extracts frames from the video stream and publishes them to a Pub/Sub topic at the natural frame rate."""
+    logging.debug(f"Publishing frames to Pub/Sub topic {topic_name} in project {project_id}")
 
     # Configure the publisher with message ordering enabled
     publisher_options = pubsub_v1.types.PublisherOptions(enable_message_ordering=True)
@@ -56,12 +48,15 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
     publisher = pubsub_v1.PublisherClient(publisher_options=publisher_options, client_options=client_options)
     topic_path = str(publisher.topic_path(project_id, topic_name))
 
-    frame_rate = get_video_frame_rate(local_video_path)
+    # Use OpenCV to read the video stream
+    video_stream.seek(0)  # Ensure the stream is at the beginning
+    cap = cv2.VideoCapture(video_stream)
+
+    frame_rate = cap.get(cv2.CAP_PROP_FPS)
     frame_delay = 1.0 / frame_rate
 
     frame_id = 0
     ordering_key = "video-stream"  # Set a fixed ordering key to maintain order
-    cap = cv2.VideoCapture(local_video_path)  # Ensure cap is properly defined here
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -70,16 +65,15 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
         # Compress the frame to JPEG format with quality 75 (adjust as needed)
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 75]
         _, buffer = cv2.imencode('.jpg', frame, encode_param)
-        data = base64.b64encode(buffer)  # Ensure frame_bytes is a string
+        data = base64.b64encode(buffer).decode('utf-8')  # Ensure frame_bytes is a string
   
         logging.debug(f"Published frame {frame_id} with frame rate {frame_rate}")
         logging.debug(f"Topic path: {topic_path}")
         logging.debug(f"Ordering key: {ordering_key}")
-        logging.debug(f"data: {data}")
         
         future = publisher.publish(
             topic_path,
-            data=data,
+            data=data.encode('utf-8'),
             ordering_key=ordering_key,
             frame_id=str(frame_id),   # Convert frame_id to string
             frame_rate=str(frame_rate)  # Convert frame_rate to string
@@ -91,8 +85,7 @@ def publish_frames_to_pubsub(local_video_path, project_id, topic_name):
             time.sleep(0.001)  # Sleep for a very short time to yield control to other processes
 
     cap.release()
-    os.remove(local_video_path)
-    logging.debug(f"Completed publishing frames and cleaned up local file {local_video_path}")
+    logging.debug(f"Completed publishing frames from video stream")
 
 @app.route('/trigger', methods=['POST'])
 def trigger():
@@ -151,11 +144,11 @@ def process_video():
     project_id = request_data['project_id']
     topic_name = request_data['topic_name']
 
-    # Download video from GCS
-    local_video_path = download_video_from_gcs(bucket_name, video_path)
+    # Get video stream from GCS
+    video_stream = get_video_stream_from_gcs(bucket_name, video_path)
 
     # Publish frames to Pub/Sub
-    publish_frames_to_pubsub(local_video_path, project_id, topic_name)
+    publish_frames_to_pubsub(video_stream, project_id, topic_name)
 
     return jsonify({"status": "Processing completed"}), 200
 

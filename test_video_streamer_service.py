@@ -23,8 +23,8 @@ VIDEO_PATH = config['VIDEO_PATH']
 PROJECT_ID = config['PROJECT_ID']
 TOPIC_NAME = config['TOPIC_NAME']
 SUBSCRIPTION_NAME = config['SUBSCRIPTION_NAME']
-TIMEOUT = 60.0  # Timeout for Pub/Sub subscription
-BUFFER_SIZE = 60  # Buffer size for frames
+TIMEOUT = 2  # Timeout for Pub/Sub subscription
+BUFFER_SIZE = 600  # Buffer size for frames
 
 frame_buffer = deque(maxlen=BUFFER_SIZE)
 frame_rate = 30.0  # Default frame rate
