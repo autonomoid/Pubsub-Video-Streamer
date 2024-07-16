@@ -1,6 +1,5 @@
 options:
   logging: CLOUD_LOGGING_ONLY
-  logsBucket: gs://racer-428819-cloud-build-logs
 
 steps:
 - name: 'gcr.io/cloud-builders/docker'
