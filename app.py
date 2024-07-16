@@ -132,20 +132,6 @@ def trigger():
         }
         parent = client.queue_path(project, location, queue)
 
-
-        # Configure the retry policy
-        retry_config = tasks_v2.RetryConfig(
-            max_attempts=1
-        )
-
-        # Update the queue with the retry configuration
-        queue = {
-            'name': QUEUE_NAME,
-            'retry_config': retry_config
-        }
-
-        response = client.update_queue(queue)
-
         response = client.create_task(parent=parent, task=task)
         logging.debug(f"Created task {response.name}")
         return jsonify({"status": "Task created", "task_name": response.name}), 200
