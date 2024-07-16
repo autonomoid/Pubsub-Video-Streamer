@@ -76,7 +76,7 @@ def subscribe_to_pubsub(project_id, subscription_name, timeout=60.0):
 
             frame_buffer.append(frame)
 
-            message.ack()
+            #message.ack()
         except Exception as e:
             logging.error(f"Error processing message: {e}")
             message.nack()
