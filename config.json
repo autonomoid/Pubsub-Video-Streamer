@@ -5,5 +5,5 @@
     "PROJECT_ID": "racer-428819",
     "TOPIC_NAME": "video-stream",
     "SUBSCRIPTION_NAME": "video-stream-test-sub",
-     "QUEUE_NAME": "task-queue"
+    "QUEUE_NAME": "task-queue"
 }  

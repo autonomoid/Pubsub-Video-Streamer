@@ -11,7 +11,7 @@ import hashlib
 from datetime import datetime
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.WARN, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
