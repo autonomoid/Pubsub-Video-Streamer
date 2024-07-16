@@ -1,0 +1,17 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/racer-428819/pubsub-video-streamer', '.']
+
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'gcr.io/racer-428819/pubsub-video-streamer']
+
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud run deploy pubsub-video-streamer \
+      --image gcr.io/racer-428819/pubsub-video-streamer \
+      --platform managed \
+      --region us-central1 \
+      --allow-unauthenticated
